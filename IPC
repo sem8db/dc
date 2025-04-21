@@ -1,0 +1,181 @@
+Part A
+Code:
+
+
+Client:
+import socket
+
+# Set up the client socket
+client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+# Connect to the server running on localhost, port 12345
+client_socket.connect(('localhost', 12345))
+
+# Send two numbers to the server
+num1 = int(input("Enter the first number: "))
+num2 = int(input("Enter the second number: "))
+
+# Send the numbers as a string to the server (comma-separated)
+client_socket.send(f"{num1},{num2}".encode())
+
+# Receive the result from the server
+result = client_socket.recv(1024).decode()
+
+# Display the result
+print(f"The sum of {num1} and {num2} is: {result}")
+
+# Close the connection
+client_socket.close()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Server:
+import socket
+
+# Function to add two numbers
+def add_numbers(num1, num2):
+    return num1 + num2
+
+# Set up the server
+server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+# Server bind to localhost on port 12345
+server_socket.bind(('localhost', 12345))
+
+# Listen for incoming connections
+server_socket.listen(5)
+print("Server is waiting for a connection...")
+
+while True:
+    # Accept a connection from the client
+    client_socket, client_address = server_socket.accept()
+    print(f"Connection from {client_address} established.")
+    
+    try:
+        # Receive the data sent from the client (expecting two numbers)
+        data = client_socket.recv(1024).decode()
+        if data:
+            # Split the numbers and perform the addition
+            num1, num2 = map(int, data.split(','))
+            result = add_numbers(num1, num2)
+            
+            # Send the result back to the client
+            client_socket.send(str(result).encode())
+        else:
+            break
+    finally:
+        # Close the client connection
+        client_socket.close()
+
+
+\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+
+Part B
+Code:
+Client:
+import socket
+
+def client_program():
+    host = '127.0.0.1'  # Localhost
+    port = 65432        # Port number
+
+    # Create a socket
+    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    client_socket.connect((host, port))
+
+    print("Connected to the server.")
+
+    while True:
+        # Take user input for operation and amount
+        operation = input("Enter operation (credit/debit or 'exit' to quit): ").lower()
+        if operation == "exit":
+            print("Exiting...")
+            break
+
+        amount = input("Enter amount: ")
+        if not amount.isdigit():
+            print("Invalid amount. Please enter a number.")
+            continue
+
+        # Send the operation and amount to the server
+        message = f"{operation} {amount}"
+        client_socket.send(message.encode())
+
+        # Receive the response from the server
+        response = client_socket.recv(1024).decode()
+        if not response:
+            print("No response received from server (possibly due to packet loss).")
+            continue
+
+        print(f"Server Response: {response}")
+
+    client_socket.close()
+
+client_program()
+
+Server
+import socket
+
+def server_program():
+    host = '127.0.0.1'  # Localhost
+    port = 65432        # Port number
+    balance = 1000      # Initial account balance
+
+    # Create a socket
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_socket.bind((host, port))
+    server_socket.listen(1)
+    print("Server is listening...")
+
+    conn, address = server_socket.accept()
+    print(f"Connection established with {address}")
+
+    while True:
+        # Receive operation and amount from the client
+        data = conn.recv(1024).decode()
+
+        if not data:
+            break
+
+        # Simulate packet loss: Drop every 3rd message
+        if server_program.packet_count % 3 == 0:
+            print(f"Simulating packet loss for message: {data}")
+            server_program.packet_count += 1
+            continue
+
+        operation, amount = data.split()
+        amount = int(amount)
+
+        if operation == "credit":
+            balance += amount
+            response = f"Credited {amount}. Current Balance: {balance}"
+        elif operation == "debit":
+            if amount > balance:
+                response = "Insufficient balance for debit operation."
+            else:
+                balance -= amount
+                response = f"Debited {amount}. Current Balance: {balance}"
+        else:
+            response = "Invalid operation. Use 'credit' or 'debit'."
+
+        conn.send(response.encode())
+        print(f"Processed request: {data}. Updated Balance: {balance}")
+        server_program.packet_count += 1
+
+    conn.close()
+    print("Connection closed.")
+
+server_program.packet_count = 1
+server_program()
+

@@ -1,0 +1,265 @@
+Static Load Balancing (RR)
+
+class Process:
+    def __init__(self, pid):
+        self.pid = pid
+
+
+class Server:
+    def __init__(self, sid):
+        self.sid = sid
+        self.process_list = []
+
+
+    def add_process(self, process):
+        self.process_list.append(process)
+        print(f"Process with PID {process.pid} added to Server {self.sid}")
+
+
+    def remove_process(self, pid):
+        for i, process in enumerate(self.process_list):
+            if process.pid == pid:
+                del self.process_list[i]
+                print(f"Process with PID {pid} removed from Server {self.sid}")
+                return True
+        return False
+
+
+    def view_load(self):
+        print(f"Server ID: {self.sid}")
+        print("Process List:", ', '.join([str(p.pid) for p in self.process_list]) or "None")
+        print(f"Total Running Processes: {len(self.process_list)}")
+
+
+
+
+class LoadBalancer:
+    def __init__(self):
+        self.servers = {}
+        self.server_queue = []
+
+
+    def add_server(self):
+        sid = input("Enter Server Name: ")
+        if sid in self.servers:
+            print("Server with this name already exists!")
+        else:
+            server = Server(sid)
+            self.servers[sid] = server
+            self.server_queue.append(server)
+            print("Server Added")
+
+
+    def remove_server(self):
+        sid = input("Enter Server Name to Remove: ")
+        if sid in self.servers:
+            server = self.servers[sid]
+            for process in server.process_list:
+                self.add_process(process)
+           
+            del self.servers[sid]
+            self.server_queue = [s for s in self.server_queue if s.sid != sid]
+            print("Server Removed")
+        else:
+            print("No server with given name found")
+
+
+    def add_process(self, process=None):
+        if not process:
+            pid = input("Enter Process ID: ")
+            process = Process(pid)
+
+
+        if len(self.server_queue) == 0:
+            print("No servers available to handle the process")
+            return
+
+
+        next_server = self.server_queue.pop(0)
+        next_server.add_process(process)
+        self.server_queue.append(next_server)
+
+
+    def remove_process(self):
+        pid = input("Enter Process ID to Remove: ")
+        for server in self.servers.values():
+            if server.remove_process(pid):
+                return
+        print("Process ID not found")
+
+
+    def view_load(self):
+        if not self.servers:
+            print("No servers available")
+        else:
+            for server in self.servers.values():
+                server.view_load()
+                print("-" * 40)
+
+
+
+
+def main():
+    lb = LoadBalancer()
+
+
+    while True:
+        print("\n1. Add Server")
+        print("2. Remove Server")
+        print("3. Add Process")
+        print("4. Remove Process")
+        print("5. View Load")
+        print("6. Exit")
+       
+        choice = input("Enter your choice: ")
+
+
+        if choice == '1':
+            lb.add_server()
+        elif choice == '2':
+            lb.remove_server()
+        elif choice == '3':
+            lb.add_process()
+        elif choice == '4':
+            lb.remove_process()
+        elif choice == '5':
+            lb.view_load()
+        elif choice == '6':
+            print("Exiting Program")
+            break
+        else:
+            print("Invalid choice. Please try again.")
+
+
+
+
+if __name__ == "__main__":
+    main()
+
+\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+
+
+Dynamic Load Balancing (Consistent Hashing)
+
+class Process:
+    def __init__(self, pid):
+        self.pid = pid
+class Server:
+    def __init__(self, sid):
+        self.sid = sid
+        self.process_list = []
+
+
+    def add_process(self, process):
+        self.process_list.append(process)
+        print(f"Process with PID {process.pid} added to Server {self.sid}")
+
+
+    def remove_process(self, pid):
+        for i, process in enumerate(self.process_list):
+            if process.pid == pid:
+                del self.process_list[i]
+                print(f"Process with PID {pid} removed from Server {self.sid}")
+                return True
+        return False
+
+
+    def view_load(self):
+        print(f"Server ID: {self.sid}")
+        print("Process List:", ', '.join([str(p.pid) for p in self.process_list]) or "None")
+        print(f"Total Running Processes: {len(self.process_list)}")
+
+
+
+
+def simple_hash(key, num_servers):
+    return sum(ord(char) for char in key) % num_servers if num_servers > 0 else 0
+class LoadBalancer:
+    def __init__(self):
+        self.servers = []
+
+
+    def add_server(self):
+        sid = input("Enter Server ID (alphanumeric): ")
+        server = Server(sid)
+        self.servers.append(server)
+        print(f"Server '{sid}' added")
+
+
+    def remove_server(self):
+        sid = input("Enter Server ID to remove: ")
+        for i, server in enumerate(self.servers):
+            if server.sid == sid:
+                for process in server.process_list:
+                    self.add_process(process)
+                del self.servers[i]
+                print(f"Server '{sid}' removed")
+                return
+        print("No server with given name found")
+
+
+    def add_process(self, process=None):
+        if not process:
+            pid = input("Enter Process ID (alphanumeric): ")
+            process = Process(pid)
+
+
+        if len(self.servers) == 0:
+            print("No servers available to handle the process")
+            return
+
+
+        server_index = simple_hash(process.pid, len(self.servers))
+        selected_server = self.servers[server_index]
+        print(f"Process '{process.pid}' hashed to index {server_index}")
+        selected_server.add_process(process)
+
+
+    def remove_process(self):
+        pid = input("Enter Process ID to remove: ")
+        for server in self.servers:
+            if server.remove_process(pid):
+                return
+        print("Process ID not found")
+
+
+    def view_load(self):
+        if not self.servers:
+            print("No servers available")
+        else:
+            for server in self.servers:
+                server.view_load()
+                print("-" * 40)
+def main():
+    lb = LoadBalancer()
+
+
+    while True:
+        print("\n1. Add Server")
+        print("2. Remove Server")
+        print("3. Add Process")
+        print("4. Remove Process")
+        print("5. View Load")
+        print("6. Exit")
+
+
+        choice = input("Enter your choice: ")
+
+
+        if choice == '1':
+            lb.add_server()
+        elif choice == '2':
+            lb.remove_server()
+        elif choice == '3':
+            lb.add_process()
+        elif choice == '4':
+            lb.remove_process()
+        elif choice == '5':
+            lb.view_load()
+        elif choice == '6':
+            print("Exiting Program")
+            break
+        else:
+            print("Invalid choice. Please try again.")
+if __name__ == "__main__":
+    main()

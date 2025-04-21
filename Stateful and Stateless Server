@@ -1,0 +1,287 @@
+Stateful Server
+........................
+import socket
+import threading
+class StatefulServer:
+    def __init__(self, host="127.0.0.1", port=5000):
+        self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.server_socket.bind((host, port))
+        self.server_socket.listen(5)
+        self.file_table = {}  # {fid: (fname, mode, file_obj)}
+        self.fid_counter = 1
+        print(f"Stateful Server started on {host}:{port}")
+    def display_table(self):
+        """ Display the current file table """
+        print("\nCurrent File Table:")
+        if not self.file_table:
+            print("No files are open.")
+        else:
+            print("{:<5} {:<20} {:<10}".format("FID", "Filename", "Mode"))
+            print("-" * 40)
+            for fid, (fname, mode, _) in self.file_table.items():
+                print(f"{fid:<5} {fname:<20} {mode:<10}")
+        print("\n")
+    def handle_client(self, client_socket):
+        while True:
+            try:
+                request = client_socket.recv(1024).decode()
+                if not request:
+                    break
+                command = request.split(" ", 2)
+                if not command:
+                    continue
+                response = "ERROR Invalid command"
+                if command[0] == "OPEN":
+                    fname, mode = command[1], command[2]
+                    fid = self.fid_counter
+                    try:
+                        file_obj = open(fname, mode)
+                        self.file_table[fid] = (fname, mode, file_obj)
+                        self.fid_counter += 1
+                        response = f"FILE_OPENED {fid}\n"
+                    except Exception as e:
+                        response = f"ERROR {str(e)}"
+                elif command[0] == "READ":
+                    fid, n = int(command[1]), int(command[2])
+                    if fid in self.file_table:
+                        file_obj = self.file_table[fid][2]
+                        data = file_obj.read(n)
+                        response = f"DATA {data}"
+                    else:
+                        response = "ERROR Invalid file ID"
+                elif command[0] == "WRITE":
+                    fid, content = int(command[1]), command[2]
+                    if fid in self.file_table:
+                        fname, mode, file_obj = self.file_table[fid]
+                        if "w" in mode or "a" in mode:
+                            file_obj.write(content + "\n")
+                            file_obj.flush()  # Ensure content is written
+                            response = "WRITE_SUCCESS"
+                        else:
+                            response = "ERROR File not opened in write mode"
+                    else:
+                        response = "ERROR Invalid file ID"
+
+
+                elif command[0] == "CLOSE":
+                    fid = int(command[1])
+                    if fid in self.file_table:
+                        self.file_table[fid][2].close()
+                        del self.file_table[fid]
+                        response = "FILE_CLOSED"
+                    else:
+                        response = "ERROR Invalid file ID"
+                elif command[0] == "SHOW_TABLE":
+                    self.display_table()
+                    response = "TABLE_DISPLAYED"
+                self.display_table()
+                client_socket.send(response.encode())
+            except Exception as e:
+                client_socket.send(f"ERROR {str(e)}".encode())
+        client_socket.close()
+    def run(self):
+        while True:
+            client_socket, _ = self.server_socket.accept()
+            threading.Thread(target=self.handle_client, args=(client_socket,)).start()
+if __name__ == "__main__":
+    server = StatefulServer()
+    server.run()
+
+-------------------------------------------------------------------------------------------------
+Stateful Client
+..................
+
+
+
+import socket
+def client_program():
+    host = "127.0.0.1"
+    port = 5000
+    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    client_socket.connect((host, port))
+    while True:
+        print("\nOptions:")
+        print("1. Open a file")
+        print("2. Read from file")
+        print("3. Write to file")
+        print("4. Close file")
+        print("5. Show file table")
+        print("6. Exit")
+        choice = input("Enter choice: ")
+        if choice == "1":
+            fname = input("Enter file name: ")
+            mode = input("Enter mode (r/w/a): ")
+            command = f"OPEN {fname} {mode}"
+        elif choice == "2":
+            fid = input("Enter file ID: ")
+            n = input("Enter number of characters to read: ")
+            command = f"READ {fid} {n}"
+        elif choice == "3":
+            fid = input("Enter file ID: ")
+            content = input("Enter content to write: ")
+            command = f"WRITE {fid} {content}"
+        elif choice == "4":
+            fid = input("Enter file ID to close: ")
+            command = f"CLOSE {fid}"
+        elif choice == "5":
+            command = "SHOW_TABLE"
+        elif choice == "6":
+            break
+        else:
+            print("Invalid choice!")
+            continue
+
+
+        client_socket.send(command.encode())
+        response = client_socket.recv(1024).decode()
+        if response.startswith("DATA "):
+            file_content = response[5:]  # Extract only the actual content
+            print("File content:", file_content)
+        else:
+            print("Response:", response)
+    client_socket.close()
+if __name__ == "__main__":
+    client_program()
+
+
+------------------------------------------------------------------------------------------------
+\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+-------------------------------------------------------------------------------------------------
+
+Stateless Server
+......................
+import socket
+import threading
+class StatelessServer:
+    def __init__(self, host="127.0.0.1", port=5001):
+        self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.server_socket.bind((host, port))
+        self.server_socket.listen(5)
+        print(f"Stateless Server started on {host}:{port}")
+    def handle_client(self, client_socket):
+        while True:
+            try:
+                request = client_socket.recv(1024).decode()
+                if not request:
+                    break
+                command = request.split(" ", 4)  # Max 5 parts
+                if not command:
+                    continue
+                response = "ERROR Invalid command"
+                if command[0] == "READ":
+                    fname, n, position = command[1], int(command[2]), int(command[3])
+                    try:
+                        with open(fname, "r") as file:
+                            file.seek(position)  # Move to specified position
+                            data = file.read(n)
+                            response = f"DATA {data}"
+                    except Exception as e:
+                        response = f"ERROR {str(e)}"
+                elif command[0] == "WRITE":
+                    fname, mode, content = command[1], command[2], command[3]
+                    try:
+                        if mode not in ["w", "a"]:
+                            response = "ERROR Invalid write mode"
+                        else:
+                            with open(fname, mode) as file:
+                                file.write(content + "\n")
+                            response = "WRITE_SUCCESS"
+                    except Exception as e:
+                        response = f"ERROR {str(e)}"
+                client_socket.send(response.encode())
+            except Exception as e:
+                client_socket.send(f"ERROR {str(e)}".encode())
+        client_socket.close()
+    def run(self):
+        while True:
+            client_socket, _ = self.server_socket.accept()
+            threading.Thread(target=self.handle_client, args=(client_socket,)).start()
+if __name__ == "__main__":
+    server = StatelessServer()
+    server.run()
+  ------------------------------------------------------------------------------------------
+
+Stateless Client
+...........................
+
+import socket
+class Client:
+    def __init__(self):
+        self.host = "127.0.0.1"
+        self.port = 5001
+        self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.client_socket.connect((self.host, self.port))
+        self.file_table = {}  # {fid: (filename, mode, position)}
+        self.fid_counter = 1  # Unique file IDs
+    def open_file(self, fname, mode):
+        fid = self.fid_counter
+        self.file_table[fid] = (fname, mode, 0)  # Start position is 0
+        self.fid_counter += 1
+        return fid
+    def read_file(self, fid, n, position=None):
+        if fid not in self.file_table:
+            print("Invalid File ID")
+            return
+        fname, mode, current_pos = self.file_table[fid]
+        if position is None:
+            position = current_pos  # Use last known position for consecutive reads
+        command = f"READ {fname} {n} {position}"
+        self.client_socket.send(command.encode())
+        response = self.client_socket.recv(1024).decode()
+        if response.startswith("DATA "):
+            data = response[5:]
+            print("File content:", data)
+            new_position = position + len(data)  # Update file position after reading
+            self.file_table[fid] = (fname, mode, new_position)
+        else:
+            print("Response:", response)
+    def write_file(self, fid, content):
+        if fid not in self.file_table:
+            print("Invalid File ID")
+            return
+        fname, mode, _ = self.file_table[fid]
+        command = f"WRITE {fname} {mode} {content}"
+        self.client_socket.send(command.encode())
+        response = self.client_socket.recv(1024).decode()
+        print("Response:", response)
+    def close_client(self):
+        self.client_socket.close()
+def client_program():
+    client = Client()
+    while True:
+        print("\nOptions:")
+        print("1. Open a file")
+        print("2. Read from file")
+        print("3. Write to file")
+        print("4. Exit")
+        choice = input("Enter choice: ")
+        if choice == "1":
+            fname = input("Enter file name: ")
+            mode = input("Enter mode (r/w/a): ")
+            fid = client.open_file(fname, mode)
+            print(f"File {fname} opened with ID {fid}")
+        elif choice == "2":
+            fid = int(input("Enter file ID: "))
+            n = int(input("Enter number of characters to read: "))
+            pos_choice = input("Enter position (leave empty for consecutive read): ")
+            position = int(pos_choice) if pos_choice else None
+            client.read_file(fid, n, position)
+        elif choice == "3":
+            fid = int(input("Enter file ID: "))
+            content = input("Enter content to write: ")
+            client.write_file(fid, content)
+        elif choice == "4":
+            break
+        else:
+            print("Invalid choice!")
+
+
+    client.close_client()
+
+
+if __name__ == "__main__":
+    client_program()
+
+

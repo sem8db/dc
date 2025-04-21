@@ -1,0 +1,80 @@
+import heapq
+import pandas as pd
+
+class Process:
+    def __init__(self, pid):
+        self.pid = pid
+        self.queue = []  # Min-heap to store request timestamps
+        self.timestamp = 0
+        self.state = "IDLE"
+        self.log = []  # To store state transitions
+    
+    def request_critical_section(self, clock):
+        self.timestamp = clock
+        heapq.heappush(self.queue, (self.timestamp, self.pid))
+        self.state = "REQUESTING"
+        self.log.append((clock, self.state, list(self.queue)))
+        return self.timestamp, self.pid
+    
+    def receive_request(self, timestamp, pid):
+        heapq.heappush(self.queue, (timestamp, pid))
+        self.log.append((timestamp, f"Received Request from {pid}", list(self.queue)))
+    
+    def acknowledge(self, timestamp, pid):
+        self.log.append((timestamp, f"Acknowledged {pid}", list(self.queue)))
+    
+    def enter_critical_section(self, clock):
+        self.state = "IN CRITICAL SECTION"
+        self.log.append((clock, "Entered Critical Section", list(self.queue)))
+    
+    def release_critical_section(self, clock):
+        heapq.heappop(self.queue)
+        self.state = "IDLE"
+        self.log.append((clock, "Exited Critical Section", list(self.queue)))
+        self.log.append((clock, "Released Critical Section", list(self.queue)))
+    
+# Simulating the Lamport Mutual Exclusion Algorithm
+clock = 1
+processes = {1: Process(1), 2: Process(2), 3: Process(3)}
+
+# Processes 2 and 3 request to enter critical section
+requests = [processes[2].request_critical_section(clock), processes[3].request_critical_section(clock + 1)]
+clock += 2
+
+# Broadcasting requests
+for sender in [2, 3]:
+    for receiver in [1, 2, 3]:
+        if sender != receiver:
+            processes[receiver].receive_request(*requests[sender - 2])
+            processes[sender].acknowledge(clock, receiver)
+    clock += 1
+
+# Granting access to the process with the smallest timestamp
+next_process = min(requests)[1]
+processes[next_process].enter_critical_section(clock)
+clock += 2
+
+# Process releases the critical section
+processes[next_process].release_critical_section(clock)
+clock += 1
+
+# Now allowing the next process in queue (Process 3) to enter
+if processes[3].queue:
+    processes[3].enter_critical_section(clock)
+    clock += 2
+    processes[3].release_critical_section(clock)
+    clock += 1
+
+# Displaying the state logs
+all_logs = []
+for time in range(1, clock + 1):
+    row = [time]
+    for pid in range(1, 4):
+        process = processes[pid]
+        state = next((entry[1] for entry in process.log if entry[0] == time), process.state)
+        row.append(state)
+    all_logs.append(row)
+
+# Creating a DataFrame for better visualization
+df = pd.DataFrame(all_logs, columns=["Clock", "Process 1", "Process 2", "Process 3"])
+print(df)

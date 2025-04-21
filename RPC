@@ -1,0 +1,59 @@
+RPC
+\\\\\\\\\\\\\\\
+
+SERVER
+
+import grpc
+from concurrent import futures
+import time
+import rpc_service_pb2
+import rpc_service_pb2_grpc
+
+# Implement the Greeter service
+class GreeterServicer(rpc_service_pb2_grpc.GreeterServicer):
+    def SayHello(self, request, context):
+        # Define the response message
+        return rpc_service_pb2.HelloReply(message=f"Hello, {request.name}!")
+
+# Set up the server
+def serve():
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+    rpc_service_pb2_grpc.add_GreeterServicer_to_server(GreeterServicer(), server)
+
+    # Bind the server to a specific port (50051 is default for gRPC)
+    server.add_insecure_port('[::]:50051')
+    print("Server is running on port 50051...")
+    server.start()
+
+    try:
+        while True:
+            time.sleep(86400)  # Keep server running
+    except KeyboardInterrupt:
+        server.stop(0)
+
+if __name__ == '__main__':
+    serve()
+
+\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+
+CLIENT
+
+import grpc
+import rpc_service_pb2
+import rpc_service_pb2_grpc
+
+def run():
+    # Connect to the server (use the IP address of the server machine)
+    channel = grpc.insecure_channel('server_ip_address:50051')  # Replace 'server_ip_address' with actual IP
+    stub = rpc_service_pb2_grpc.GreeterStub(channel)
+
+    # Create a request
+    request = rpc_service_pb2.HelloRequest(name='World')
+
+    # Call the remote procedure
+    response = stub.SayHello(request)
+
+    print("Received:", response.message)
+
+if __name__ == '__main__':
+    run()

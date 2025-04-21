@@ -1,0 +1,92 @@
+import numpy as np
+import networkx as nx
+def wait_and_die():
+    processes = int(input("Enter number of processes: "))
+    resources = int(input("Enter number of resources: "))
+    timestamps = list(range(1, processes + 1))
+    allocation = [0] * resources   
+    while True:
+        p = int(input("Enter process requesting resource (or -1 to stop): "))
+        if p == -1:
+            break
+        r = int(input("Enter resource index: "))
+       
+        if allocation[r] == 0 or timestamps[p - 1] < timestamps[allocation[r] - 1]:
+            allocation[r] = p
+            print(f"Resource {r} allocated to process {p}")
+        else:
+            print(f"Process {p} killed (Wait and Die)")
+
+
+def bankers_algorithm():
+    n = int(input("Enter number of processes: "))
+    m = int(input("Enter number of resources: "))
+   
+    max_need = np.array([list(map(int, input(f"Enter max need for process {i}: ").split())) for i in range(n)])
+    allocation = np.array([list(map(int, input(f"Enter allocation for process {i}: ").split())) for i in range(n)])
+    available = np.array(list(map(int, input("Enter available resources: ").split())))
+   
+    need = max_need - allocation
+    finish = [False] * n
+    safe_seq = []
+    print("\nInitial Resource State:")
+    print("Max Need:\n", max_need)
+    print("Allocation:\n", allocation)
+    print("Need:\n", need)
+    print("Available Resources:", available)
+    while len(safe_seq) < n:
+        done = False
+        for i in range(n):
+            if not finish[i] and all(need[i] <= available):
+                print(f"Process {i} can finish. Granting resources...")
+                available += allocation[i]
+                finish[i] = True
+                safe_seq.append(i)
+                done = True
+                print(f"Available resources after Process {i} finishes: {available}")
+                break  # Break to recheck the processes after allocation
+       
+        if not done:
+            print("System is in an unsafe state! No safe sequence exists.")
+            return
+   
+    print("\nSystem is in a safe state!")
+    print("Safe sequence:", safe_seq)
+def cmh_algorithm():
+    G = nx.DiGraph()
+    edges = []
+    print("Enter edges (P -> R or R -> P), type 'done' to finish:")
+    while True:
+        edge = input("Edge (format: A B): ")
+        if edge == 'done':
+            break
+        u, v = edge.split()
+        edges.append((u, v))
+   
+    G.add_edges_from(edges)
+    try:
+        cycle = nx.find_cycle(G, orientation='original')
+        print("Deadlock detected! Cycle:", cycle)
+    except nx.NetworkXNoCycle:
+        print("No deadlock detected.")
+def main():
+    while True:
+        print("\nDeadlock Handling Menu:")
+        print("1. Deadlock Prevention (Wait and Die)")
+        print("2. Deadlock Avoidance (Banker's Algorithm)")
+        print("3. Deadlock Detection (CMH Algorithm)")
+        print("4. Exit")
+        choice = int(input("Enter your choice: "))
+        if choice == 1:
+            wait_and_die()
+        elif choice == 2:
+            bankers_algorithm()
+        elif choice == 3:
+            cmh_algorithm()
+        elif choice == 4:
+            print("Exiting...")
+            break
+        else:
+            print("Invalid choice, try again.")
+if __name__ == "__main__":
+    main()

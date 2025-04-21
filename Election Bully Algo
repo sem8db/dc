@@ -1,0 +1,63 @@
+class Process:
+    def __init__(self, id, is_coordinator=False):
+        self.id = id
+        self.is_coordinator = is_coordinator
+
+
+def start_election(processes, initiator_id):
+    initiator = next((p for p in processes if p.id == initiator_id), None)
+    if not initiator:
+        print("Invalid initiator ID!")
+        return
+
+    print(f"\nProcess {initiator_id} starts the election.")
+    higher_processes = [p for p in processes if p.id > initiator_id]
+
+    if not higher_processes:
+        print(f"No higher process available. Process {initiator_id} becomes the coordinator.")
+        set_coordinator(processes, initiator_id)
+        return
+
+    responses = []
+    for p in higher_processes:
+        print(f"Process {initiator_id} sends ELECTION message to Process {p.id}")
+        responses.append(p.id)  # assuming all higher processes respond
+
+    if responses:
+        max_id = max(responses)
+        print(f"Processes {responses} responded. Process {max_id} starts a new election.")
+        start_election(processes, max_id)
+    else:
+        set_coordinator(processes, initiator_id)
+
+
+def set_coordinator(processes, coordinator_id):
+    for p in processes:
+        p.is_coordinator = (p.id == coordinator_id)
+
+    print(f"\nProcess {coordinator_id} is elected as the new coordinator.")
+    for p in processes:
+        if p.id != coordinator_id:
+            print(f"Process {coordinator_id} sends COORDINATOR message to Process {p.id}")
+
+
+def main():
+    num_processes = int(input("Enter the number of processes: "))
+    process_ids = sorted([int(input(f"Enter ID for Process {i+1}: ")) for i in range(num_processes)])
+    processes = [Process(pid) for pid in process_ids]
+
+    while True:
+        print("\nCurrent processes:")
+        for p in processes:
+            status = "(Coordinator)" if p.is_coordinator else ""
+            print(f"Process {p.id} {status}")
+
+        initiator_id = int(input("\nEnter the ID of the process to start the election (or -1 to exit): "))
+        if initiator_id == -1:
+            break
+
+        start_election(processes, initiator_id)
+
+
+if __name__ == "__main__":
+    main()

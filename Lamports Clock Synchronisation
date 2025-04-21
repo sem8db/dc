@@ -1,0 +1,85 @@
+class Process:
+    def __init__(self, process_id, cycle_increment):
+        self.process_id = process_id
+        self.clock = 0
+        self.cycle_increment = cycle_increment  # Different cycle increments for P2 and P3
+        self.events = []
+
+    def internal_event(self, event_label):
+        """Handles an internal event, just increments the clock based on process cycle."""
+        self.clock += self.cycle_increment
+        self.events.append((event_label, "Internal", self.clock))
+
+    def send_event(self, event_label, receiver):
+        """Handles a send event, increments the clock before sending."""
+        self.clock += self.cycle_increment
+        message_time = self.clock
+        self.events.append((event_label, f"Send to P{receiver.process_id}", self.clock))
+        return message_time
+
+    def receive_event(self, event_label, sender, sender_time):
+        """Handles a receive event, synchronizing with sender's time."""
+        self.clock = max(self.clock, sender_time) + 1
+        self.events.append((event_label, f"Receive from P{sender.process_id}", self.clock))
+
+
+# Initialize processes with different cycle increments
+P1 = Process(1, 6)   # P1 cycle: 6
+P2 = Process(2, 8)   # P2 cycle: 8
+P3 = Process(3, 10)  # P3 cycle: 10
+
+# Simulating the events with logical clock synchronization
+P1.internal_event("E1")
+msg1_time = P1.send_event("E1", P2)       # P1 sends Msg1 to P2
+P1.internal_event("E2")
+P1.internal_event("E3")
+P1.internal_event("E4")
+P1.internal_event("E5")
+P1.internal_event("E6")
+P1.internal_event("E7")
+
+P2.receive_event("E2", P1, msg1_time)     # P2 receives Msg1 from P1
+P2.internal_event("E3")
+msg2_time = P2.send_event("E3", P3)       # P2 sends Msg2 to P3
+P2.internal_event("E4")
+P2.internal_event("E5")
+
+P3.receive_event("E4", P2, msg2_time)     # P3 receives Msg2 from P2
+P3.internal_event("E5")
+msg3_time = P3.send_event("E5", P2)       # P3 sends Msg3 to P2
+P3.internal_event("E6")
+P3.internal_event("E7")
+P3.internal_event("E8")
+P3.internal_event("E9")
+P3.internal_event("E10")
+
+P2.receive_event("E6", P3, msg3_time)     # P2 receives Msg3 from P3
+P2.internal_event("E7")
+msg4_time = P2.send_event("E7", P1)       # P2 sends Msg4 to P1
+P2.internal_event("E8")
+
+P1.receive_event("E8", P2, msg4_time)     # P1 receives Msg4 from P2
+
+# Print the Global Message Order
+print("\nGlobal Message Order:")
+print(f"{'Msg':<5}{'Sender (Event)':<25}{'Receiver (Event)':<25}{'Sender Time':<15}{'Receiver Time'}")
+print("-" * 85)
+print(f"{1:<5}{'P1 E1':<25}{'P2 E2':<25}{msg1_time:<15}{P2.events[-4][2]}")
+print(f"{2:<5}{'P2 E3':<25}{'P3 E4':<25}{msg2_time:<15}{P3.events[0][2]}")
+print(f"{3:<5}{'P3 E5':<25}{'P2 E6':<25}{msg3_time:<15}{P2.events[-3][2]}")
+print(f"{4:<5}{'P2 E7':<25}{'P1 E8':<25}{msg4_time:<15}{P1.events[-1][2]}")
+
+
+# Function to print events of each process
+def print_events(process):
+    print(f"\nProcess P{process.process_id} Events:")
+    print(f"{'Event':<10}{'Type':<30}{'Timestamp'}")
+    print("-" * 50)
+    for event in process.events:
+        print(f"{event[0]:<10}{event[1]:<30}{event[2]}")
+
+
+# Print events for each process
+print_events(P1)
+print_events(P2)
+print_events(P3)
